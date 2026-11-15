@@ -1,6 +1,10 @@
 import ReactPaginate from "react-paginate";
 import css from "./Pagination.module.css";
 
+const ReactPaginateComponent =
+  (ReactPaginate as unknown as { default?: typeof ReactPaginate }).default ??
+  ReactPaginate;
+
 export interface PaginationProps {
   currentPage: number;
   pageCount: number;
@@ -13,7 +17,7 @@ export default function Pagination({
   onPageChange,
 }: PaginationProps) {
   return (
-    <ReactPaginate
+    <ReactPaginateComponent
       breakLabel="…"
       nextLabel="Next"
       onPageChange={({ selected }) => onPageChange(selected + 1)}
