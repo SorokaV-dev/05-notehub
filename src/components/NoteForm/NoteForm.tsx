@@ -1,13 +1,13 @@
 import { Formik } from "formik";
 import * as Yup from "yup";
-import type { NewNote, NoteTag } from "../../types/note";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { createNote } from "../../services/noteService";
+import type { NoteTag } from "../../types/note";
 import css from "./NoteForm.module.css";
 
 export interface NoteFormProps {
-  onSubmit: (note: NewNote) => Promise<void>;
   onCancel: () => void;
-  isSaving?: boolean;
-  errorMessage?: string | null;
+  onCreated: () => void;
 }
 
 interface NoteFormValues {
@@ -31,12 +31,16 @@ const validationSchema = Yup.object({
   tag: Yup.mixed<NoteTag>().oneOf(tags).required("Tag is required"),
 });
 
-export default function NoteForm({
-  onSubmit,
-  onCancel,
-  isSaving = false,
-  errorMessage = null,
-}: NoteFormProps) {
+export default function NoteForm({ onCancel, onCreated }: NoteFormProps) {
+  const queryClient = useQueryClient();
+  const createMutation = useMutation({
+    mutationFn: createNote,
+    onSuccess: async () => {
+      onCreated();
+      await queryClient.invalidateQueries({ queryKey: ["notes"] });
+    },
+  });
+
   const initialValues: NoteFormValues = {
     title: "",
     content: "",
@@ -47,16 +51,15 @@ export default function NoteForm({
     <Formik<NoteFormValues>
       initialValues={initialValues}
       validationSchema={validationSchema}
-      onSubmit={async (values, helpers) => {
+      onSubmit={async (values) => {
         try {
-          await onSubmit({
+          await createMutation.mutateAsync({
             title: values.title.trim(),
             content: values.content.trim(),
             tag: values.tag,
           });
-          helpers.resetForm();
         } catch {
-          // The parent displays the request error and keeps the form open.
+          // The mutation error is displayed while the form stays open.
         }
       }}
     >
@@ -140,9 +143,9 @@ export default function NoteForm({
             </span>
           </div>
 
-          {errorMessage && (
+          {createMutation.error && (
             <p className={css.submitError} role="alert">
-              {errorMessage}
+              {createMutation.error.message}
             </p>
           )}
 
@@ -151,16 +154,16 @@ export default function NoteForm({
               type="button"
               className={css.cancelButton}
               onClick={onCancel}
-              disabled={isSaving || form.isSubmitting}
+              disabled={createMutation.isPending || form.isSubmitting}
             >
               Cancel
             </button>
             <button
               type="submit"
               className={css.submitButton}
-              disabled={isSaving || form.isSubmitting}
+              disabled={createMutation.isPending || form.isSubmitting}
             >
-              {isSaving ? "Creating…" : "Create note"}
+              {createMutation.isPending ? "Creating…" : "Create note"}
             </button>
           </div>
         </form>

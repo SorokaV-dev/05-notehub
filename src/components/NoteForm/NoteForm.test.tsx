@@ -1,13 +1,41 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createNote } from "../../services/noteService";
 import NoteForm from "./NoteForm";
 
+vi.mock("../../services/noteService", () => ({ createNote: vi.fn() }));
+
+function renderNoteForm({ onCancel = vi.fn(), onCreated = vi.fn() } = {}) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+
+  render(
+    <QueryClientProvider client={queryClient}>
+      <NoteForm onCancel={onCancel} onCreated={onCreated} />
+    </QueryClientProvider>,
+  );
+
+  return { onCancel, onCreated };
+}
+
 describe("NoteForm", () => {
+  beforeEach(() => {
+    vi.mocked(createNote).mockResolvedValue({
+      id: "note-1",
+      title: "Course plan",
+      content: "Review React Query.",
+      createdAt: "2026-10-01T10:00:00.000Z",
+      updatedAt: "2026-10-01T10:00:00.000Z",
+      tag: "Todo",
+    });
+  });
+
   it("validates the title and content before submitting", async () => {
     const user = userEvent.setup();
-    const onSubmit = vi.fn().mockResolvedValue(undefined);
-    render(<NoteForm onSubmit={onSubmit} onCancel={vi.fn()} />);
+    renderNoteForm();
 
     await user.click(screen.getByRole("button", { name: "Create note" }));
     expect(await screen.findByText("Title is required")).toBeInTheDocument();
@@ -22,13 +50,12 @@ describe("NoteForm", () => {
     expect(
       screen.getByText("Content must contain no more than 500 characters"),
     ).toBeInTheDocument();
-    expect(onSubmit).not.toHaveBeenCalled();
+    expect(createNote).not.toHaveBeenCalled();
   });
 
   it("rejects titles longer than 50 characters", async () => {
     const user = userEvent.setup();
-    const onSubmit = vi.fn().mockResolvedValue(undefined);
-    render(<NoteForm onSubmit={onSubmit} onCancel={vi.fn()} />);
+    renderNoteForm();
 
     await user.type(screen.getByLabelText("Title"), "x".repeat(51));
     await user.click(screen.getByRole("button", { name: "Create note" }));
@@ -36,13 +63,12 @@ describe("NoteForm", () => {
     expect(
       await screen.findByText("Title must contain no more than 50 characters"),
     ).toBeInTheDocument();
-    expect(onSubmit).not.toHaveBeenCalled();
+    expect(createNote).not.toHaveBeenCalled();
   });
 
   it("submits values from a valid form", async () => {
     const user = userEvent.setup();
-    const onSubmit = vi.fn().mockResolvedValue(undefined);
-    render(<NoteForm onSubmit={onSubmit} onCancel={vi.fn()} />);
+    const { onCreated } = renderNoteForm();
 
     await user.type(screen.getByLabelText("Title"), "Course plan");
     await user.type(screen.getByLabelText("Content"), "Review React Query.");
@@ -50,24 +76,22 @@ describe("NoteForm", () => {
     await user.click(screen.getByRole("button", { name: "Create note" }));
 
     await waitFor(() => {
-      expect(onSubmit).toHaveBeenCalledWith({
-        title: "Course plan",
-        content: "Review React Query.",
-        tag: "Meeting",
-      });
+      expect(createNote).toHaveBeenCalledWith(
+        {
+          title: "Course plan",
+          content: "Review React Query.",
+          tag: "Meeting",
+        },
+        expect.anything(),
+      );
     });
+    expect(onCreated).toHaveBeenCalledOnce();
   });
 
   it("keeps the entered values and re-enables the form after a failed request", async () => {
     const user = userEvent.setup();
-    const onSubmit = vi.fn().mockRejectedValue(new Error("Request failed"));
-    render(
-      <NoteForm
-        onSubmit={onSubmit}
-        onCancel={vi.fn()}
-        errorMessage="Request failed"
-      />,
-    );
+    vi.mocked(createNote).mockRejectedValue(new Error("Request failed"));
+    renderNoteForm();
 
     const title = screen.getByLabelText("Title");
     await user.type(title, "Course plan");
@@ -81,8 +105,7 @@ describe("NoteForm", () => {
   });
 
   it("calls onCancel from the Cancel button", async () => {
-    const onCancel = vi.fn();
-    render(<NoteForm onSubmit={vi.fn()} onCancel={onCancel} />);
+    const { onCancel } = renderNoteForm();
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onCancel).toHaveBeenCalledOnce();

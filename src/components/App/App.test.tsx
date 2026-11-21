@@ -136,7 +136,9 @@ describe("App", () => {
       screen.getByRole("button", { name: "Delete note Weekly plan" }),
     );
 
-    await waitFor(() => expect(deleteNote).toHaveBeenCalledWith("note-1"));
+    await waitFor(() =>
+      expect(deleteNote).toHaveBeenCalledWith("note-1", expect.anything()),
+    );
     await waitFor(() => expect(fetchNotes).toHaveBeenCalledTimes(2));
   });
 
@@ -192,11 +194,14 @@ describe("App", () => {
     );
 
     await waitFor(() => {
-      expect(createNote).toHaveBeenCalledWith({
-        title: "New note",
-        content: "Read course notes.",
-        tag: "Personal",
-      });
+      expect(createNote).toHaveBeenCalledWith(
+        {
+          title: "New note",
+          content: "Read course notes.",
+          tag: "Personal",
+        },
+        expect.anything(),
+      );
     });
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
