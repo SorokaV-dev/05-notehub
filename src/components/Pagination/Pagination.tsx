@@ -5,14 +5,11 @@ import css from "./Pagination.module.css";
 
 type ModuleWithDefault<T> = { default: T };
 
-const ReactPaginateDefault = (
+const ReactPaginate = (
   ReactPaginateModule as unknown as ModuleWithDefault<
     ComponentType<ReactPaginateProps>
   >
 ).default;
-const ReactPaginate =
-  ReactPaginateDefault ??
-  (ReactPaginateModule as unknown as ComponentType<ReactPaginateProps>);
 
 export interface PaginationProps {
   currentPage: number;
